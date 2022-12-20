@@ -15,12 +15,22 @@ import pygame as pg
 from pygame.sprite import Sprite
 import random
 from random import randint
+from random import randint, randrange
+import os
+from os import path
+from math import *
+from time import *
+from hashlib import new
+from itertools import count
+from secrets import choice
+
 
 vec = pg.math.Vector2
 
 # game settings 
 WIDTH = 1450
 HEIGHT = 900
+
 FPS = 30
 
 # player settings
@@ -43,6 +53,8 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE2 = (0, 255, 255)
 BLUE = (0, 0, 255)
+YELLOW = (255,255,0)
+ORANGE = (255, 98, 0)
 
 def colorbyte():
     return random.randint(0,255)
@@ -59,13 +71,30 @@ def draw_text(text, size, color, x, y):
 class Player(Sprite):
     def __init__(self):
         Sprite.__init__(self)
+        self.countdown = Cooldown()
         self.image = pg.Surface((50, 50))
         self.image.fill(BLUE2)
         self.rect = self.image.get_rect()
-        self.rect.center = (WIDTH/2, HEIGHT/2)
-        self.pos = vec(WIDTH/2, HEIGHT/2)
-        self.vel = vec(0,50)
-        self.acc = vec(0,50)
+        self.pos = vec(WIDTH/2, 0.9 * HEIGHT)
+        self.rect = self.pos
+        self.vel = vec(0,0)
+        self.acc = vec(0,0)
+        self.health = 100
+        self.jumppower = 25
+        self.fired = False
+        self.jumps = 2
+class Cooldown():
+    def __init__(self):
+        self.current_time = 0
+        self.event_time = 0
+        self.delta = 0
+    def ticking(self):
+        self.current_time = midline((pg.time.get_ticks())/1000)
+        self.delta = self.current_time - self.event_time
+        # print(self.delta)
+    def timer(self):
+        self.current_time = midline((pg.time.get_ticks())/1000)
+        
 
     def controls(self):
         keys = pg.key.get_pressed()
@@ -77,6 +106,44 @@ class Player(Sprite):
             self.acc.y = -2
         if keys[pg.K_s]:
             self.acc.y = 2
+            if keys[pg.K_e]:
+                self.fire()
+    
+    def fire(self):
+        self.countdown.event_time = midline(pg.time.get_ticks()/1000)
+        mpos = pg.mouse.get_pos()
+        targetx = mpos[0]
+        targety = mpos[1]
+        distance_x = targetx - self.rect.x
+        distance_y = targety - self.rect.y
+        angle = atan2(distance_y, distance_x)
+        speed_x = 10 * cos(angle)
+        speed_y = 10 * sin(angle)
+        
+        if self.countdown.delta > 2:
+            p = Pewpew(self.pos.x,self.pos.y - self.rect.height, 30, 30, speed_x, speed_y, "player")
+        else:
+            p = Pewpew(self.pos.x,self.pos.y - self.rect.height, 10, 10, speed_x, speed_y, "player")
+
+        all_sprites.add(p)
+        
+
+class Pewpew(Sprite):
+    def __init__(self, x, y, w, h,sx,sy, owner):
+        Sprite.__init__(self)
+        self.owner = owner
+        self.image = pg.Surface((w, h))
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        if self.owner == 'player':
+                self.radius = w/2
+        pg.draw.circle(self.image, YELLOW, self.rect.center, self.radius)
+       
+        
+    
+    
+        
+
     def skid(self):
         hits = pg.sprite.spritecollide(self, all_platforms, False)
         if hits:
@@ -95,10 +162,24 @@ class Player(Sprite):
         self.pos += self.vel + 0.5 * self.acc
         # self.rect.x += self.xvel
         # self.rect.y += self.yvel
-        self.rect.midbottom = self.pos
-        if self.pos.y < HEIGHT/2:
-            self.pos.y = HEIGHT/2 - self.rect.height
+        self.rect = self.pos
+        
+        if self.pos.y < HEIGHT/2+20:
+            self.pos.y = HEIGHT/2+20
+            self.rect.y = HEIGHT / 2 + 20
             self.acc.y = 0
+        if self.pos.y + 50 > HEIGHT:
+            self.pos.y = HEIGHT - 50
+            self.rect.y = HEIGHT - 50
+            self.acc.y = 0
+        if self.pos.x < 0:
+            self.pos.x = 0
+            self.rect.x = 0
+            self.acc.x = 0
+        if self.pos.x + 50 > WIDTH:
+            self.pos.x = WIDTH - 50
+            self.rect.x = WIDTH - 50
+            self.acc.x = 0
 
 #class Player2(Sprite):
     #def __init__(self2):
@@ -140,10 +221,10 @@ class Player(Sprite):
         # self2.rect.midbottom = self2.pos
 
 class Platform(Sprite):
-    def __init__(self, x, y, w, h):
+    def __init__(self, x, y, w, h, color):
         Sprite.__init__(self)
         self.image = pg.Surface((w,h))
-        self.image.fill(GREEN)
+        self.image.fill(color)
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -162,6 +243,10 @@ class Mob(Sprite):
         self.rect.x += self.speed
         if self.rect.right > WIDTH or self.rect.x < 0:
             self.speed *= -1
+    
+
+
+    
 
 # init pygame and create a window
 pg.init()
@@ -177,21 +262,27 @@ mobs = pg.sprite.Group()
 
 # instantiate classes
 player = Player()
+
+midline = Platform(0, HEIGHT / 2, WIDTH, 20, BLUE)
+
 # player2 = Player2()
-plat = Platform(WIDTH/30, HEIGHT/20, 10, 1000)
+# plat = Platform(WIDTH/30, HEIGHT/20, 10, 1000, GREEN)
 #plat1 = Platform(75, 300, 100, 35)
 # mob = Mob(25, 57, 25, 25)
 
 # add instances to groups
 all_sprites.add(player)
 # all_sprites.add(player2)
-all_sprites.add(plat)
+# all_sprites.add(plat)
+all_sprites.add(midline)
 #all_sprites.add(plat1)
 # all_sprites.add(mob)
-all_platforms.add(plat)
+# all_platforms.add(plat)
+all_platforms.add(midline)
+
 #all_platforms.add(plat1)
 
-for i in range(20):
+for i in range(10):
     # instantiate mob class repeatedly
     m = Mob(randint(0, WIDTH), randint(0,HEIGHT), 25, 25, (randint(0,255), randint(0,255) , randint(0,255)))
     all_sprites.add(m)
@@ -209,7 +300,7 @@ while running:
             running = False
     
     ############ Update ##############
-    # update all sprites
+    # # update all sprites
     hits = pg.sprite.spritecollide(player, all_platforms, False)
     if hits:
         print("i've collided...with a plat")
@@ -229,13 +320,13 @@ while running:
         #     print ("YOU WIN!") #if you reach 90 points you win
         # if HEALTH == 0:
         #     break #if you reach a health total of 0, the game ends
-    if mobhits:
-        print("ive struck a mob")
-        m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
-        all_sprites.add(m)
-        mobs.add(m)
-    if POINTS == GOAL:
-        break
+    # if mobhits:
+    #     print("ive struck a mob")
+    #     m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
+    #     all_sprites.add(m)
+    #     mobs.add(m)
+    # if POINTS == GOAL:
+    #     break
         
     # if mobhits:
     #     YAY += 1
@@ -251,13 +342,13 @@ while running:
         # print(mobhits[0].color)
     all_sprites.update()
     # if mobhits:
-    if mobhits:
-        print("ive struck a mob")
-        m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
-        all_sprites.add(m)
-        mobs.add(m)
-    if POINTS2 == GOAL:
-        break
+    # if mobhits:
+    #     print("ive struck a mob")
+    #     m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
+    #     all_sprites.add(m)
+    #     mobs.add(m)
+    # if POINTS2 == GOAL:
+    #     break
 
     ############ Draw ################
     # draw the background screen
@@ -400,17 +491,17 @@ mobs = pg.sprite.Group()
 # instantiate classes
 player = Player()
 player2 = Player2()
-plat = Platform(WIDTH/30, HEIGHT/20, 10, 1000)
+midline = Platform(WIDTH/30, HEIGHT/20, 10, 1000)
 #plat1 = Platform(75, 300, 100, 35)
 # mob = Mob(25, 57, 25, 25)
 
 # add instances to groups
 all_sprites.add(player)
 all_sprites.add(player2)
-all_sprites.add(plat)
+all_sprites.add(midline)
 #all_sprites.add(plat1)
 # all_sprites.add(mob)
-all_platforms.add(plat)
+all_platforms.add(midline)
 #all_platforms.add(plat1)
 
 for i in range(20):
