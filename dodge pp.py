@@ -10,38 +10,40 @@
 # add a starting screen
 # add a sounds for each player, so that you can differentiate who hits a mob
 
+# # content from kids can code: http://kidscancode.org/blog/
+
+# import libraries and modules
+
+# GOALS
+# Create another class with Player 2
+# increase playing ground with game settings
+# add code where when each player hits a mob, another one spawns
+# add competition goal, first to hit #points wins
+# add a starting screen
+# add a sounds for each player, so that you can differentiate who hits a mob
+
 from platform import platform
 import pygame as pg
 from pygame.sprite import Sprite
 import random
 from random import randint
-from random import randint, randrange
-import os
-from os import path
-from math import *
-from time import *
-from hashlib import new
-from itertools import count
-from secrets import choice
-
 
 vec = pg.math.Vector2
 
 # game settings 
 WIDTH = 1450
 HEIGHT = 900
-
 FPS = 30
 
 # player settings
 PLAYER_FRIC = -0.1
-PLAYER_GRAV = .99
+PLAYER_GRAV = .98
 POINTS = 0 
 
 PLAYER2_FRIC = -0.1
-PLAYER2_GRAV =.99
+PLAYER2_GRAV =.98
 POINTS2 = 0
-GOAL = 10
+GOAL = 500
 
 # HEALTH = 10 #start with 10 health
 # YAY = 0 #start with no yay's
@@ -53,12 +55,10 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE2 = (0, 255, 255)
 BLUE = (0, 0, 255)
-YELLOW = (255,255,0)
-ORANGE = (255, 98, 0)
 
 def colorbyte():
     return random.randint(0,255)
-# Tells us the format of the game/ the outline
+
 def draw_text(text, size, color, x, y):
         font_name = pg.font.match_font('times new roman')
         font = pg.font.Font(font_name, size)
@@ -71,31 +71,13 @@ def draw_text(text, size, color, x, y):
 class Player(Sprite):
     def __init__(self):
         Sprite.__init__(self)
-        self.countdown = Cooldown()
         self.image = pg.Surface((50, 50))
-        self.image.fill(BLUE2)
+        self.image.fill(GREEN)
         self.rect = self.image.get_rect()
-        self.pos = vec(WIDTH/2, 0.9 * HEIGHT)
-        self.rect = self.pos
+        self.rect.center = (WIDTH/2, HEIGHT/2)
+        self.pos = vec(WIDTH/2, HEIGHT/2)
         self.vel = vec(0,0)
         self.acc = vec(0,0)
-        self.health = 100
-        self.jumppower = 25
-        self.fired = False
-        self.jumps = 2
-class Cooldown():
-    def __init__(self):
-        self.current_time = 0
-        self.event_time = 0
-        self.delta = 0
-    def ticking(self):
-        self.current_time = midline((pg.time.get_ticks())/1000)
-        self.delta = self.current_time - self.event_time
-        # print(self.delta)
-    def timer(self):
-        self.current_time = midline((pg.time.get_ticks())/1000)
-        
-
     def controls(self):
         keys = pg.key.get_pressed()
         if keys[pg.K_a]:
@@ -106,44 +88,6 @@ class Cooldown():
             self.acc.y = -2
         if keys[pg.K_s]:
             self.acc.y = 2
-            if keys[pg.K_e]:
-                self.fire()
-    
-    def fire(self):
-        self.countdown.event_time = midline(pg.time.get_ticks()/1000)
-        mpos = pg.mouse.get_pos()
-        targetx = mpos[0]
-        targety = mpos[1]
-        distance_x = targetx - self.rect.x
-        distance_y = targety - self.rect.y
-        angle = atan2(distance_y, distance_x)
-        speed_x = 10 * cos(angle)
-        speed_y = 10 * sin(angle)
-        
-        if self.countdown.delta > 2:
-            p = Pewpew(self.pos.x,self.pos.y - self.rect.height, 30, 30, speed_x, speed_y, "player")
-        else:
-            p = Pewpew(self.pos.x,self.pos.y - self.rect.height, 10, 10, speed_x, speed_y, "player")
-
-        all_sprites.add(p)
-        
-
-class Pewpew(Sprite):
-    def __init__(self, x, y, w, h,sx,sy, owner):
-        Sprite.__init__(self)
-        self.owner = owner
-        self.image = pg.Surface((w, h))
-        self.image.set_colorkey(BLACK)
-        self.rect = self.image.get_rect()
-        if self.owner == 'player':
-                self.radius = w/2
-        pg.draw.circle(self.image, YELLOW, self.rect.center, self.radius)
-       
-        
-    
-    
-        
-
     def skid(self):
         hits = pg.sprite.spritecollide(self, all_platforms, False)
         if hits:
@@ -157,20 +101,18 @@ class Pewpew(Sprite):
         self.acc += self.vel * PLAYER_FRIC
         # self.acc.x += self.vel.x * PLAYER_FRIC
         # self.acc.y += self.vel.y * PLAYER_FRIC
-        
         self.vel += self.acc
         self.pos += self.vel + 0.5 * self.acc
         # self.rect.x += self.xvel
         # self.rect.y += self.yvel
-        self.rect = self.pos
-        
-        if self.pos.y < HEIGHT/2+20:
-            self.pos.y = HEIGHT/2+20
-            self.rect.y = HEIGHT / 2 + 20
+        self.rect.midbottom = self.pos
+        if self.pos.y < 0:
+            self.pos.y = 0
+            self.rect.y = 0
             self.acc.y = 0
-        if self.pos.y + 50 > HEIGHT:
-            self.pos.y = HEIGHT - 50
-            self.rect.y = HEIGHT - 50
+        if self.pos.y + 20 > HEIGHT:
+            self.pos.y = HEIGHT - 20
+            self.rect.y = HEIGHT - 20
             self.acc.y = 0
         if self.pos.x < 0:
             self.pos.x = 0
@@ -221,10 +163,10 @@ class Pewpew(Sprite):
         # self2.rect.midbottom = self2.pos
 
 class Platform(Sprite):
-    def __init__(self, x, y, w, h, color):
+    def __init__(self, x, y, w, h):
         Sprite.__init__(self)
         self.image = pg.Surface((w,h))
-        self.image.fill(color)
+        self.image.fill(GREEN)
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -243,10 +185,6 @@ class Mob(Sprite):
         self.rect.x += self.speed
         if self.rect.right > WIDTH or self.rect.x < 0:
             self.speed *= -1
-    
-
-
-    
 
 # init pygame and create a window
 pg.init()
@@ -262,27 +200,21 @@ mobs = pg.sprite.Group()
 
 # instantiate classes
 player = Player()
-
-midline = Platform(0, HEIGHT / 2, WIDTH, 20, BLUE)
-
 # player2 = Player2()
-# plat = Platform(WIDTH/30, HEIGHT/20, 10, 1000, GREEN)
+plat = Platform(WIDTH/30, HEIGHT/20, 10, 1000)
 #plat1 = Platform(75, 300, 100, 35)
 # mob = Mob(25, 57, 25, 25)
 
 # add instances to groups
 all_sprites.add(player)
 # all_sprites.add(player2)
-# all_sprites.add(plat)
-all_sprites.add(midline)
+all_sprites.add(plat)
 #all_sprites.add(plat1)
 # all_sprites.add(mob)
-# all_platforms.add(plat)
-all_platforms.add(midline)
-
+all_platforms.add(plat)
 #all_platforms.add(plat1)
 
-for i in range(10):
+for i in range(20):
     # instantiate mob class repeatedly
     m = Mob(randint(0, WIDTH), randint(0,HEIGHT), 25, 25, (randint(0,255), randint(0,255) , randint(0,255)))
     all_sprites.add(m)
@@ -300,33 +232,33 @@ while running:
             running = False
     
     ############ Update ##############
-    # # update all sprites
+    # update all sprites
     hits = pg.sprite.spritecollide(player, all_platforms, False)
     if hits:
         print("i've collided...with a plat")
     mobhits = pg.sprite.spritecollide(player, mobs, True)
     if mobhits:
-        POINTS += 1
+        POINTS += 25
         print(POINTS)
         print("i've collided...with a mob")
         print(mobhits[0].color)
     all_sprites.update()
     # if mobhits:
-        # HEALTH -= 1
-        # print ("You gained a health point")    # touching a mob takes a health point
-        # if HEALTH == 5:
-        #     print ("BE CAREFUL, YOU ONLY HAVE 5 HITPOINTS LEFT") # if you red 5 in health, the saying is printed
-        # if POINTS == 90:
-        #     print ("YOU WIN!") #if you reach 90 points you win
-        # if HEALTH == 0:
-        #     break #if you reach a health total of 0, the game ends
-    # if mobhits:
-    #     print("ive struck a mob")
-    #     m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
-    #     all_sprites.add(m)
-    #     mobs.add(m)
-    # if POINTS == GOAL:
-    #     break
+    #     HEALTH -= 1
+    #     print ("You gained a health point")    # touching a mob takes a health point
+    #     if HEALTH == 5:
+    #         print ("BE CAREFUL, YOU ONLY HAVE 5 HITPOINTS LEFT") # if you red 5 in health, the saying is printed
+    #     if POINTS == 90:
+    #         print ("YOU WIN!") #if you reach 90 points you win
+    #     if HEALTH == 0:
+    #         break #if you reach a health total of 0, the game ends
+    if mobhits:
+        print("ive struck a mob")
+        m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
+        all_sprites.add(m)
+        mobs.add(m)
+    if POINTS == GOAL:
+        break
         
     # if mobhits:
     #     YAY += 1
@@ -342,13 +274,13 @@ while running:
         # print(mobhits[0].color)
     all_sprites.update()
     # if mobhits:
-    # if mobhits:
-    #     print("ive struck a mob")
-    #     m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
-    #     all_sprites.add(m)
-    #     mobs.add(m)
-    # if POINTS2 == GOAL:
-    #     break
+    if mobhits:
+        print("ive struck a mob")
+        m = Mob(randint(0,WIDTH), randint(0,HEIGHT), 25, 25, (colorbyte(),colorbyte(),colorbyte()))
+        all_sprites.add(m)
+        mobs.add(m)
+    if POINTS2 == GOAL:
+        break
 
     ############ Draw ################
     # draw the background screen
@@ -358,7 +290,7 @@ while running:
     all_sprites.draw(screen)
     draw_text("POINTS p1: " + str(POINTS), 22, WHITE, WIDTH / 2, HEIGHT / 15)
     # draw_text("POINTS P2: " + str(POINTS2), 22, WHITE, WIDTH / 2, HEIGHT / 10)
-    draw_text("GOAL OF GAME: " + str(GOAL), 22, WHITE, WIDTH / 2, HEIGHT / 50)
+    # draw_text("GOAL OF GAME: " + str(GOAL), 22, WHITE, WIDTH / 2, HEIGHT / 50)
     # draw_text("HEALTH: " + str(HEALTH), 15, WHITE, WIDTH / 2, HEIGHT / 10)
     
 
@@ -491,17 +423,17 @@ mobs = pg.sprite.Group()
 # instantiate classes
 player = Player()
 player2 = Player2()
-midline = Platform(WIDTH/30, HEIGHT/20, 10, 1000)
+plat = Platform(WIDTH/30, HEIGHT/20, 10, 1000)
 #plat1 = Platform(75, 300, 100, 35)
 # mob = Mob(25, 57, 25, 25)
 
 # add instances to groups
 all_sprites.add(player)
 all_sprites.add(player2)
-all_sprites.add(midline)
+all_sprites.add(plat)
 #all_sprites.add(plat1)
 # all_sprites.add(mob)
-all_platforms.add(midline)
+all_platforms.add(plat)
 #all_platforms.add(plat1)
 
 for i in range(20):
